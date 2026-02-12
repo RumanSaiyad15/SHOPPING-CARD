@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyShop - Online Shopping Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+    <div class="header-top">
+        <div class="logo">🛍️ MyShop</div>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search products..." />
+            <button id="searchBtn">🔍 Search</button>
+        </div>
+        <div class="header-icons">
+            <button id="cartBtn" class="cart-btn">🛒 Cart (<span id="cartCount">0</span>)</button>
+        </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="categories">
+        <button class="cat-btn active" data-category="">All Products</button>
+        {% for category in categories %}
+        <button class="cat-btn" data-category="{{ category }}">{{ category.capitalize() }}</button>
+        {% endfor %}
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+    <!-- Products Grid -->
+    <section class="products-section">
+        <h2>Featured Products</h2>
+        <div id="productsGrid" class="products-grid">
+            <!-- Products will be loaded here -->
+        </div>
+    </section>
+</div>
+
+<!-- Shopping Cart Modal -->
+<div id="cartModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🛒 Shopping Cart</h2>
+            <button class="close-btn">&times;</button>
+        </div>
+        <div id="cartItems" class="cart-items">
+            <!-- Cart items will be shown here -->
+        </div>
+        <div class="cart-summary">
+            <h3>Total: ₹<span id="cartTotal">0</span></h3>
+            <button id="checkoutBtn" class="checkout-btn">Proceed to Checkout</button>
+        </div>
+    </div>
+</div>
+
+<!-- Checkout Modal -->
+<div id="checkoutModal" class="modal">
+    <div class="modal-content checkout-modal">
+        <div class="modal-header">
+            <h2>📦 Checkout</h2>
+            <button class="close-btn checkout-close">&times;</button>
+        </div>
+        <form id="checkoutForm" class="checkout-form">
+            <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" id="customerName" required />
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" id="customerEmail" required />
+            </div>
+            <div class="form-group">
+                <label>Phone Number *</label>
+                <input type="tel" id="customerPhone" required />
+            </div>
+            <div class="form-group">
+                <label>Delivery Address *</label>
+                <textarea id="customerAddress" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Payment Method *</label>
+                <select id="paymentMethod" required>
+                    <option value="">Select Payment Method</option>
+                    <option value="credit_card">Credit Card</option>
+                    <option value="debit_card">Debit Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="cash_on_delivery">Cash on Delivery</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Order Total: ₹<span id="orderTotal">0</span></label>
+            </div>
+            <button type="submit" class="pay-btn">Complete Payment</button>
+        </form>
+    </div>
+</div>
+
+<!-- Order Success Modal -->
+<div id="successModal" class="modal">
+    <div class="modal-content success-modal">
+        <div class="success-icon">✅</div>
+        <h2>Order Placed Successfully!</h2>
+        <p>Order ID: <strong id="orderId"></strong></p>
+        <p>Total Amount: ₹<span id="successTotal"></span></p>
+        <p id="successMessage"></p>
+        <button id="continueShopping" class="continue-btn">Continue Shopping</button>
+    </div>
+</div>
+
+<script>
+// DOM Elements
+const cartBtn = document.getElementById('cartBtn');
+const cartModal = document.getElementById('cartModal');
+const checkoutModal = document.getElementById('checkoutModal');
+const successModal = document.getElementById('successModal');
+const closeButtons = document.querySelectorAll('.close-btn');
+const checkoutBtn = document.getElementById('checkoutBtn');
+const checkoutForm = document.getElementById('checkoutForm');
+const continueShopping = document.getElementById('continueShopping');
+const productsGrid = document.getElementById('productsGrid');
+const categoryButtons = document.querySelectorAll('.cat-btn');
+const searchBtn = document.getElementById('searchBtn');
+const searchInput = document.getElementById('searchInput');
+
+let currentCategory = '';
+let cartData = [];
+
+// Load products on page load
+document.addEventListener('DOMContentLoaded', loadProducts);
+
+// Category Filter
+categoryButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+        categoryButtons.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentCategory = this.dataset.category;
+        loadProducts();
+    });
+});
+
+// Search
+searchBtn.addEventListener('click', loadProducts);
+searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') loadProducts();
+});
+
+// Load products from API
+async function loadProducts() {
+    try {
+        const search = searchInput.value;
+        let url = '/api/products';
+        if (currentCategory || search) {
+            url += '?';
+            if (currentCategory) url += 'category=' + currentCategory;
+            if (search) url += (currentCategory ? '&' : '') + 'search=' + search;
+        }
+
+        const response = await fetch(url);
+        const products = await response.json();
+        displayProducts(products);
+    } catch (error) {
+        console.error('Error loading products:', error);
+    }
+}
+
+// Display products
+function displayProducts(products) {
+    productsGrid.innerHTML = '';
+    if (products.length === 0) {
+        productsGrid.innerHTML = '<p class="no-products">No products found</p>';
+        return;
+    }
+
+    products.forEach(product => {
+        const productCard = document.createElement('div');
+        productCard.className = 'product-card';
+        productCard.innerHTML = `
+            <div class="product-image">${product.image}</div>
+            <div class="product-info">
+                <h3>${product.name}</h3>
+                <p class="category-tag">${product.category}</p>
+                <p class="price">₹${product.price}</p>
+                <button class="add-to-cart-btn" onclick="addToCart(${product.id}, '${product.name}', ${product.price}, '${product.image}')">
+                    🛒 Add to Cart
+                </button>
+            </div>
+        `;
+        productsGrid.appendChild(productCard);
+    });
+}
+
+// Add to cart
+async function addToCart(productId, name, price, image) {
+    try {
+        const response = await fetch('/api/cart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId, quantity: 1 })
+        });
+
+        if (response.ok) {
+            showNotification(`${name} added to cart! ✅`);
+            updateCartCount();
+        }
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+    }
+}
+
+// Show cart modal
+cartBtn.addEventListener('click', async function() {
+    await updateCart();
+    cartModal.style.display = 'flex';
+});
+
+// Close modals
+closeButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+        cartModal.style.display = 'none';
+        checkoutModal.style.display = 'none';
+        successModal.style.display = 'none';
+    });
+});
+
+// Update cart display
+async function updateCart() {
+    try {
+        const response = await fetch('/api/cart');
+        const data = await response.json();
+        cartData = data.items;
+        
+        const cartItemsDiv = document.getElementById('cartItems');
+        const cartTotal = document.getElementById('cartTotal');
+        
+        if (cartData.length === 0) {
+            cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+            cartTotal.textContent = '0';
+            checkoutBtn.disabled = true;
+            return;
+        }
+
+        checkoutBtn.disabled = false;
+        cartItemsDiv.innerHTML = cartData.map(item => `
+            <div class="cart-item">
+                <div class="item-image">${item.image}</div>
+                <div class="item-details">
+                    <p class="item-name">${item.name}</p>
+                    <p class="item-price">₹${item.price}</p>
+                </div>
+                <div class="item-quantity">
+                    <input type="number" min="1" value="${item.quantity}" 
+                        onchange="updateQuantity(${item.id}, this.value)" />
+                </div>
+                <div class="item-subtotal">₹${item.price * item.quantity}</div>
+                <button class="remove-btn" onclick="removeFromCart(${item.id})">🗑️</button>
+            </div>
+        `).join('');
+
+        cartTotal.textContent = data.total;
+    } catch (error) {
+        console.error('Error updating cart:', error);
+    }
+}
+
+// Update cart count
+async function updateCartCount() {
+    try {
+        const response = await fetch('/api/cart');
+        const data = await response.json();
+        document.getElementById('cartCount').textContent = data.count;
+    } catch (error) {
+        console.error('Error updating cart count:', error);
+    }
+}
+
+// Update quantity
+async function updateQuantity(productId, quantity) {
+    if (quantity < 1) quantity = 1;
+    try {
+        await fetch(`/api/cart/update/${productId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: parseInt(quantity) })
+        });
+        updateCart();
+    } catch (error) {
+        console.error('Error updating quantity:', error);
+    }
+}
+
+// Remove from cart
+async function removeFromCart(productId) {
+    try {
+        await fetch(`/api/cart/remove/${productId}`, { method: 'DELETE' });
+        updateCart();
+        updateCartCount();
+    } catch (error) {
+        console.error('Error removing from cart:', error);
+    }
+}
+
+// Checkout button
+checkoutBtn.addEventListener('click', function() {
+    const total = document.getElementById('cartTotal').textContent;
+    document.getElementById('orderTotal').textContent = total;
+    cartModal.style.display = 'none';
+    checkoutModal.style.display = 'flex';
+});
+
+// Close checkout modal
+document.querySelector('.checkout-close').addEventListener('click', function() {
+    checkoutModal.style.display = 'none';
+    cartModal.style.display = 'flex';
+});
+
+// Submit checkout
+checkoutForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    try {
+        const response = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('customerName').value,
+                email: document.getElementById('customerEmail').value,
+                phone: document.getElementById('customerPhone').value,
+                address: document.getElementById('customerAddress').value,
+                payment_method: document.getElementById('paymentMethod').value
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            document.getElementById('orderId').textContent = result.order_id;
+            document.getElementById('successTotal').textContent = result.total;
+            document.getElementById('successMessage').textContent = `Thank you ${result.customer}! Your order has been confirmed.`;
+            
+            checkoutModal.style.display = 'none';
+            successModal.style.display = 'flex';
+            
+            checkoutForm.reset();
+            updateCartCount();
+        }
+    } catch (error) {
+        console.error('Error processing checkout:', error);
+        alert('Error processing order. Please try again.');
+    }
+});
+
+// Continue shopping
+continueShopping.addEventListener('click', function() {
+    successModal.style.display = 'none';
+    loadProducts();
+});
+
+// Show notification
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 3000);
+}
+
+// Initialize cart count
+updateCartCount();
+</script>
+
+</body>
+</html>
