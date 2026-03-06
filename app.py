@@ -7,7 +7,7 @@ app.secret_key = 'your_secret_key_here'
 # Product Database
 products_db = {
     "fruits": [
-        {"id": 1, "name": "Apple", "price": 120, "category": "fruits", "image": "🍎"},
+        {"id": 1, "name": "Apple", "price": 100, "category": "fruits", "image": "🍎"},
         {"id": 2, "name": "Banana", "price": 40, "category": "fruits", "image": "🍌"},
         {"id": 3, "name": "Orange", "price": 60, "category": "fruits", "image": "🍊"},
         {"id": 4, "name": "Mango", "price": 150, "category": "fruits", "image": "🥭"},
@@ -206,5 +206,6 @@ def checkout():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
